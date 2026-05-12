@@ -71,14 +71,19 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 async def login(user_data: UserLogin, db: Session = Depends(get_db)):
-    """Login user and return JWT tokens"""
-    # Find user by username
-    user = db.query(User).filter(User.username == user_data.username).first()
+    # Find user by username OR email
+    user = (
+        db.query(User)
+        .filter(
+            (User.username == user_data.username) | (User.email == user_data.username)
+        )
+        .first()
+    )
 
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password"
+            detail="Incorrect username/email or password",
         )
 
     # Verify password

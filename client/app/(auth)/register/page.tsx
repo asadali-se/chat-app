@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -21,10 +22,17 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
+import { authAPI } from "@/lib/api";
 
 const registerSchema = z
     .object({
-        username: z.string().min(3, "Username must be at least 3 characters"),
+        username: z
+            .string()
+            .min(3, "Username must be at least 3 characters")
+            .regex(
+                /^[a-zA-Z0-9_]+$/,
+                "Username can only contain letters, numbers, and underscores",
+            ),
         email: z.string().email("Invalid email address"),
         password: z.string().min(8, "Password must be at least 8 characters"),
         confirmPassword: z.string().min(8, "Please confirm your password"),
@@ -37,6 +45,7 @@ const registerSchema = z
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
+    const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
 
     const form = useForm<RegisterFormValues>({
@@ -52,10 +61,15 @@ export default function RegisterPage() {
     const onSubmit = async (data: RegisterFormValues) => {
         setIsLoading(true);
         try {
-            console.log("Register data:", data);
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            alert("Registration submitted! Check console for data.");
+            // Call the real backend
+            await authAPI.register(data.username, data.email, data.password);
+            alert("Registration successful! Please login.");
+            // Redirect to login page
+            router.push("/login");
         } catch (error) {
+            const message =
+                error instanceof Error ? error.message : "Registration failed";
+            alert(message);
             console.error("Registration error:", error);
         } finally {
             setIsLoading(false);
@@ -84,6 +98,7 @@ export default function RegisterPage() {
                                     <FormControl>
                                         <Input
                                             placeholder="Enter your username"
+                                            autoComplete="off"
                                             {...field}
                                             disabled={isLoading}
                                         />
@@ -119,7 +134,7 @@ export default function RegisterPage() {
                                     <FormLabel>Password</FormLabel>
                                     <FormControl>
                                         <Input
-                                            autoComplete="new-password"
+                                            autoComplete="off"
                                             type="password"
                                             placeholder="Enter your password"
                                             {...field}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -21,6 +22,7 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
+import { authAPI, setTokens } from "@/lib/api";
 
 const loginSchema = z.object({
     username: z.string().min(3, "Username must be at least 3 characters"),
@@ -30,7 +32,9 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
+    const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const form = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
@@ -42,12 +46,18 @@ export default function LoginPage() {
 
     const onSubmit = async (data: LoginFormValues) => {
         setIsLoading(true);
+        setError(null);
+
         try {
-            console.log("Login data:", data);
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            alert("Login submitted! Check console for data.");
-        } catch (error) {
-            console.error("Login error:", error);
+            const response = await authAPI.login(data.username, data.password);
+            // response contains { access_token, refresh_token, token_type }
+            setTokens(response.access_token, response.refresh_token);
+            // Redirect to chat page
+            router.push("/chat");
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "Invalid username or password";
+            setError(message);
+            console.error("Login error:", err);
         } finally {
             setIsLoading(false);
         }
@@ -64,6 +74,11 @@ export default function LoginPage() {
                 </CardDescription>
             </CardHeader>
             <CardContent>
+                {error && (
+                    <div className="mb-4 p-3 rounded bg-red-100 border border-red-400 text-red-700 text-sm">
+                        {error}
+                    </div>
+                )}
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField
@@ -71,11 +86,11 @@ export default function LoginPage() {
                             name="username"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Username</FormLabel>
+                                    <FormLabel>Username or Email</FormLabel>
                                     <FormControl>
                                         <Input
+                                            placeholder="Enter your username or email"
                                             autoComplete="username"
-                                            placeholder="Enter your username"
                                             {...field}
                                             disabled={isLoading}
                                         />
@@ -92,9 +107,9 @@ export default function LoginPage() {
                                     <FormLabel>Password</FormLabel>
                                     <FormControl>
                                         <Input
-                                            autoComplete="current-password"
                                             type="password"
                                             placeholder="Enter your password"
+                                            autoComplete="off"
                                             {...field}
                                             disabled={isLoading}
                                         />
